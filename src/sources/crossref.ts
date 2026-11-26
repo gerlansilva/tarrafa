@@ -72,6 +72,29 @@ export const crossref: Source = {
         cursor = items.length ? (check ? "offset" : m["next-cursor"]) : "";
       }
     }
+    // com ORCID, uma consulta extra pelos trabalhos em que a editora registrou o ORCID do autor
+    if (q.authorOrcid && !ctx.cancelled()) {
+      const fo = [...f, `orcid:${q.authorOrcid}`];
+      const r = await ctx.getJson(`https://api.crossref.org/works?filter=${enc(fo.join(","))}&rows=200&select=DOI,title,author,issued,container-title,ISSN,is-referenced-by-count,abstract,subject,type,URL${ctx.settings.email ? `&mailto=${enc(ctx.settings.email)}` : ""}`);
+      for (const x of r.message?.items ?? []) {
+        if (seen.has(x.DOI)) continue;
+        seen.add(x.DOI);
+        const w = work("Crossref", {
+          title: (x.title ?? [])[0],
+          authors: (x.author ?? []).map((a: any) => [a.family, a.given].filter(Boolean).join(", ") || a.name).filter(Boolean),
+          year: x.issued?.["date-parts"]?.[0]?.[0] ?? undefined,
+          venue: (x["container-title"] ?? [])[0],
+          issn: x.ISSN,
+          doi: x.DOI,
+          url: x.URL,
+          abstract: x.abstract,
+          keywords: x.subject,
+          citations: x["is-referenced-by-count"],
+          type: x.type,
+        });
+        if (!check || matchesLocally(w, q)) works.push(w);
+      }
+    }
     const note = check ? `${combos.length} consultas; E/OU conferidos aqui (${works.length} de ${scanned} analisados)` : undefined;
     return { note, works: works.slice(0, q.max), total: check ? works.length : total, queryString: (check ? combos.map((c) => c.join(" ")).join(" | ") + " · " : "") + params.filter((p) => !p.startsWith("select") && !p.startsWith("mailto")).map(decodeURIComponent).join("&") };
   },

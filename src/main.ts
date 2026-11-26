@@ -403,7 +403,11 @@ function renderSearch() {
     const b = (e.target as HTMLElement).closest("button");
     if (b) (f.scope = b.dataset.s as Scope), renderSearch();
   });
-  $("#author")?.addEventListener("input", (e) => (f.author = (e.target as HTMLInputElement).value));
+  $("#author")?.addEventListener("input", (e) => {
+    f.author = (e.target as HTMLInputElement).value;
+    const p = $(".howto-p");
+    if (p) p.innerHTML = plainSentence(currentQuery());
+  });
   $("#local")?.addEventListener("change", (e) => (f.localFilter = (e.target as HTMLInputElement).checked));
   $("#yFrom").addEventListener("input", (e) => (f.yearFrom = (e.target as HTMLInputElement).value));
   $("#yTo").addEventListener("input", (e) => (f.yearTo = (e.target as HTMLInputElement).value));
