@@ -1,0 +1,25 @@
+[package]
+name = "tarrafa"
+version = "0.1.0"
+description = "Tarrafa — busca de literatura científica em bases nacionais e internacionais"
+authors = ["Gerlan Silva da Silva"]
+edition = "2021"
+
+[lib]
+name = "tarrafa_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "gzip"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true
