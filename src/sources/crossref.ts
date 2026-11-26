@@ -29,7 +29,10 @@ export const crossref: Source = {
     const clean = (t: string) => t.replace(/[*?"]/g, "").trim();
     let combos: string[][] = [[]];
     for (const b of q.blocks.filter((b) => b.length)) combos = combos.flatMap((c) => b.map((t) => [...c, clean(t)]));
-    combos = combos.slice(0, 12);
+    // até 60 consultas; com muitas combinações, lê uma página de cada para não pesar
+    const allCombos = combos.length;
+    combos = combos.slice(0, 60);
+    const maxPages = combos.length > 12 ? 1 : 2;
     const check = hasTerms(q);
     const seen = new Set<string>();
     const works = [];
@@ -43,7 +46,7 @@ export const crossref: Source = {
       const byOffset = check || !!q.author.trim();
       let cursor = "*";
       let pages = 0;
-      while (cursor && works.length < q.max && !ctx.cancelled() && (check ? pages < 2 : true)) {
+      while (cursor && works.length < q.max && !ctx.cancelled() && (check ? pages < maxPages : true)) {
         const paging = byOffset ? `&offset=${pages * per}` : `&cursor=${enc(cursor)}`;
         const r = await ctx.getJson(`https://api.crossref.org/works?${params.join("&")}${qp}&rows=${per}${paging}`);
         const m = r.message ?? {};
@@ -97,7 +100,7 @@ export const crossref: Source = {
         if (!check || matchesLocally(w, q)) works.push(w);
       }
     }
-    const note = check ? `${combos.length} consultas; E/OU conferidos aqui (${works.length} de ${scanned} analisados)` : undefined;
+    const note = check ? `${combos.length}${allCombos > combos.length ? ` de ${allCombos}` : ""} consultas; E/OU conferidos aqui (${works.length} de ${scanned} analisados)` : undefined;
     return { note, works: works.slice(0, q.max), total: check ? works.length : total, queryString: (check ? combos.map((c) => c.join(" ")).join(" | ") + " · " : "") + params.filter((p) => !p.startsWith("select") && !p.startsWith("mailto")).map(decodeURIComponent).join("&") };
   },
 };
