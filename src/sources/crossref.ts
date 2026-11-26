@@ -73,6 +73,7 @@ export const crossref: Source = {
       }
     }
     // com ORCID, uma consulta extra pelos trabalhos em que a editora registrou o ORCID do autor
+    const orcidWorks: typeof works = [];
     if (q.authorOrcid && !ctx.cancelled()) {
       const fo = [...f, `orcid:${q.authorOrcid}`];
       const r = await ctx.getJson(`https://api.crossref.org/works?filter=${enc(fo.join(","))}&rows=200&select=DOI,title,author,issued,container-title,ISSN,is-referenced-by-count,abstract,subject,type,URL${ctx.settings.email ? `&mailto=${enc(ctx.settings.email)}` : ""}`);
