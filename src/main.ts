@@ -19,7 +19,7 @@ import { store } from "./store";
 
 // =============================================================== estado
 type View = "search" | "results" | "metrics" | "history";
-type Status = { state: "run" | "ok" | "err" | "skip"; done: number; total?: number; msg?: string };
+type Status = { state: "run" | "ok" | "err" | "skip"; done: number; total?: number; msg?: string; scan?: boolean };
 type SortKey = "relevance" | "citations" | "newest" | "oldest" | "title";
 
 const S = {
@@ -489,6 +489,7 @@ async function runSearch() {
         progress: (done, total) => {
           st.done = done;
           st.total = total;
+          st.scan = !!src.journalsOnly;
           renderNets();
         },
         cancelled: () => S.cancel,
@@ -504,7 +505,7 @@ async function runSearch() {
         if (authorNote) r.note = r.note ? `${r.note}; ${authorNote}` : authorNote;
         ws.forEach((w, i) => (w.rank = i));
         S.raw.push(...ws);
-        Object.assign(st, { state: r.note && !ws.length && !r.total ? "skip" : "ok", done: ws.length, total: r.total, msg: r.note });
+        Object.assign(st, { state: r.note && !ws.length && !r.total ? "skip" : "ok", done: ws.length, total: r.total, msg: r.note, scan: false });
         entry.runs.push({ source: src.name, queryString: r.queryString, retrieved: ws.length, total: r.total, note: r.note });
       } catch (e: any) {
         Object.assign(st, { state: "err", msg: String(e?.message ?? e).slice(0, 180) });
@@ -685,9 +686,11 @@ function renderNets() {
   el.innerHTML = Object.entries(S.status)
     .map(([id, st]) => {
       const name = sourceById(id)?.name ?? id;
-      const pct = st.total ? Math.min(100, (st.done / Math.min(st.total, S.settings.maxPerSource)) * 100) : st.state === "run" ? 8 : 100;
+      const cap = st.scan ? Infinity : S.settings.maxPerSource;
+      const pct = st.total ? Math.min(100, (st.done / Math.min(st.total, cap)) * 100) : st.state === "run" ? 8 : 100;
       const txt =
-        st.state === "run" ? `${fmt(st.done)}${st.total != null ? ` / ${fmt(Math.min(st.total, S.settings.maxPerSource))}` : "…"}` :
+        st.state === "run" && st.scan ? `varrendo ${fmt(st.done)} de ${fmt(st.total ?? 0)} artigos` :
+        st.state === "run" ? `${fmt(st.done)}${st.total != null ? ` / ${fmt(Math.min(st.total, cap))}` : "…"}` :
         st.state === "ok" ? `${fmt(st.done)}${st.total != null && st.total > st.done ? ` de ${fmt(st.total)}` : ""}` :
         st.state === "err" ? "falhou" : "não usada";
       return `<span class="net ${st.state}" title="${esc(st.msg ?? "")}"><span class="dot"></span><b>${esc(name)}</b> ${txt}${st.state === "run" ? `<span class="bar" style="width:${pct}%"></span>` : ""}</span>`;

@@ -2,6 +2,9 @@ import type { HttpResult } from "./types";
 
 const isTauri = () => typeof (window as any).__TAURI_INTERNALS__ !== "undefined";
 
+/** Bases que não liberam CORS: no navegador vão direto pelo proxy, sem perder tempo tentando. */
+const PROXY_HOSTS = new Set(["articlemeta.scielo.org", "bdtd.ibict.br", "api.ies.ed.gov"]);
+
 /** No app (Tauri) a requisição sai pelo Rust; no navegador tenta direto e, se o CORS bloquear, usa o proxy do servidor de desenvolvimento. */
 export async function httpGet(url: string, headers?: Record<string, string>): Promise<HttpResult> {
   if (isTauri()) {
@@ -18,11 +21,13 @@ export async function httpGet(url: string, headers?: Record<string, string>): Pr
     if (r.status === 404) throw new Error("No navegador esta base é bloqueada (CORS); funciona no app Tarrafa.");
     return { status: r.status, body: await r.text() };
   };
-  if (url.startsWith("http://")) return viaProxy();
+  const host = new URL(url).hostname;
+  if (url.startsWith("http://") || PROXY_HOSTS.has(host)) return viaProxy();
   try {
     const r = await fetch(url, { headers });
     return { status: r.status, body: await r.text() };
   } catch {
+    PROXY_HOSTS.add(host); // da próxima vez, direto pelo proxy
     return viaProxy();
   }
 }

@@ -99,10 +99,6 @@ export const scielo: Source = {
     saveCache();
     let works = docs.filter((w): w is Work => !!w).filter((w) => inYearRange(w, q) || (!q.yearFrom && !q.yearTo));
     if (hasTerms(q)) works = works.filter((w) => matchesLocally(w, q));
-    if (q.author.trim()) {
-      const a = q.author.trim().toLowerCase();
-      works = works.filter((w) => w.authors.some((x) => x.toLowerCase().includes(a)));
-    }
     return {
       works: works.slice(0, q.max),
       total: works.length,
