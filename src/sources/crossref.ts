@@ -39,11 +39,12 @@ export const crossref: Source = {
       if (works.length >= q.max || ctx.cancelled()) break;
       const qp = c.length ? `&query.bibliographic=${enc(c.join(" "))}` : "";
       const per = check ? 200 : Math.min(500, q.max);
-      // com termos, pagina por offset: o cursor do Crossref desliga a ordenação por relevância
+      // com termos ou autor, pagina por offset: o cursor do Crossref desliga a ordenação por relevância
+      const byOffset = check || !!q.author.trim();
       let cursor = "*";
       let pages = 0;
       while (cursor && works.length < q.max && !ctx.cancelled() && (check ? pages < 2 : true)) {
-        const paging = check ? `&offset=${pages * per}` : `&cursor=${enc(cursor)}`;
+        const paging = byOffset ? `&offset=${pages * per}` : `&cursor=${enc(cursor)}`;
         const r = await ctx.getJson(`https://api.crossref.org/works?${params.join("&")}${qp}&rows=${per}${paging}`);
         const m = r.message ?? {};
         if (!check) total = m["total-results"];
@@ -69,7 +70,7 @@ export const crossref: Source = {
           if (!check || matchesLocally(w, q)) works.push(w);
         }
         ctx.progress(works.length, check ? undefined : total);
-        cursor = items.length ? (check ? "offset" : m["next-cursor"]) : "";
+        cursor = items.length && (!byOffset || (pages + 1) * per <= 10000) ? (byOffset ? "offset" : m["next-cursor"]) : "";
       }
     }
     // com ORCID, uma consulta extra pelos trabalhos em que a editora registrou o ORCID do autor
