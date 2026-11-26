@@ -15,7 +15,7 @@ import { dedupe } from "./dedup";
 import { computeMetrics, countBy } from "./metrics";
 import { historyToMarkdown, toABNT, toBibTeX, toCSV, toRIS, toTriage } from "./export";
 import { parseBibTeX, parseRIS } from "./importers";
-import { store } from "./store";
+import { store, LIST_TEMPLATES } from "./store";
 
 // =============================================================== estado
 type View = "search" | "results" | "metrics" | "history";
@@ -244,7 +244,7 @@ function renderSearch() {
       <div class="chips">
         ${terms.map((t, j) => `${j ? `<span class="or">ou</span>` : ""}<span class="chip-term">${esc(t)}<button data-rmt="${j}" aria-label="Remover ${esc(t)}">${ic("x", 13)}</button></span>`).join("")}
         <input id="in-${none ? "none" : i}" data-in="${none ? "none" : i}" autocomplete="off" placeholder="${
-          none ? "termo a excluir" : terms.length ? "outro sinônimo ou tradução" : i === 0 ? "ex.: educação estatística" : "ex.: formação de professores"
+          none ? "termo a excluir" : terms.length ? "outro sinônimo ou tradução" : i === 0 ? "ex.: tema principal" : "ex.: público, lugar ou método"
         }">
       </div>
       ${!none && f.blocks.length > 1 ? `<button class="rm" data-rmb="${i}" title="Remover conceito ${i + 1}">${ic("trash", 15)}</button>` : `<span></span>`}
@@ -317,7 +317,7 @@ function renderSearch() {
               .join("")}</ul>`
           )
           .join("")}
-        ${SOURCES.some((s) => S.settings.enabledSources.includes(s.id) && needsList(s.id)) ? `<div class="need-list">${ic("journals", 15)}<span>O SciELO só busca dentro de uma lista de revistas.</span><button class="link-btn" id="pickList">Escolher revistas</button></div>` : ""}
+        ${SOURCES.some((s) => S.settings.enabledSources.includes(s.id) && needsList(s.id)) ? `<div class="need-list">${ic("journals", 15)}<span>O SciELO só busca dentro de uma lista de revistas (há modelos de várias áreas). Sem lista, os artigos do SciELO ainda chegam pelo OpenAlex e pelo Crossref.</span><button class="link-btn" id="pickList">Escolher revistas</button></div>` : ""}
       </section>
       <section class="panel" aria-labelledby="hFilt"><h2 id="hFilt"><i class="num">3</i>Limites</h2>
         <div class="opts">
@@ -1324,6 +1324,7 @@ function openLists(selectedId?: string) {
         <label class="lbl">Lista</label>
         <select class="inp" id="lSel">${S.lists.map((l) => `<option value="${l.id}" ${cur?.id === l.id ? "selected" : ""}>${esc(l.name)} (${l.journals.length})</option>`).join("")}</select>
         <button class="ghost" id="lNew">${ic("plus", 15)}Nova lista</button>
+        <select class="inp" id="lTpl" aria-label="Adicionar lista pronta"><option value="">Adicionar modelo…</option>${LIST_TEMPLATES.map((t) => `<option value="${t.id}">${esc(t.name)}${S.lists.some((l) => l.id === t.id) ? " (já tem)" : ""}</option>`).join("")}</select>
         ${cur ? `<button class="ghost danger" id="lDel">${ic("trash", 15)}Excluir lista</button>` : ""}
       </div>
       ${
@@ -1378,6 +1379,15 @@ function openLists(selectedId?: string) {
       persist();
       draw();
       ($("#lName", root) as HTMLInputElement)?.select();
+    });
+    $("#lTpl", root)?.addEventListener("change", (e) => {
+      const t = LIST_TEMPLATES.find((x) => x.id === (e.target as HTMLSelectElement).value);
+      if (!t) return;
+      const have = S.lists.find((l) => l.id === t.id);
+      cur = have ?? JSON.parse(JSON.stringify(t));
+      if (!have) S.lists.push(cur);
+      persist();
+      draw();
     });
     $("#lDel", root)?.addEventListener("click", () => {
       if (!confirm(`Excluir a lista “${cur.name}”?`)) return;
