@@ -72,7 +72,8 @@ export const scielo: Source = {
       }
     }
     // o código SciELO traz o ano (S0103-636X2012000100013 → 2012): descarta cedo o que está fora do período
-    const candidates = ids.filter((c) => {
+    // a mesma revista aparece pelos dois ISSNs (impresso e eletrônico): cada artigo entra uma vez só
+    const candidates = [...new Set(ids)].filter((c) => {
       const y = Number(c.slice(10, 14));
       if (!y) return true;
       return (!q.yearFrom || y >= q.yearFrom) && (!q.yearTo || y <= q.yearTo);
