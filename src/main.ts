@@ -9,7 +9,7 @@ import { ic } from "./icons";
 import { CONCEPTS, kwColor, langColor, srcColor, tagStyle, typeColor } from "./colors";
 import type { Journal, HistoryEntry, JournalList, Query, Scope, SearchContext, Settings, Work } from "./types";
 import { SOURCES, sourceById } from "./sources";
-import { booleanExpr, cleanIssn, hasTerms, highlightTerms, inYearRange, matchesLocally } from "./query";
+import { booleanExpr, cleanIssn, hasTerms, highlightTerms, inYearRange, matchesLocally, authorMatches, authorParts, orcidOf } from "./query";
 import { getJson, httpGet, httpPost, saveFile } from "./http";
 import { dedupe } from "./dedup";
 import { computeMetrics, countBy } from "./metrics";
@@ -188,10 +188,12 @@ function describeQuery(q: Query): string {
 
 /** A busca em português corrido, para conferir sem ler a expressão booleana. */
 function plainSentence(q: Query): string {
-  if (!hasTerms(q)) return `<span class="hint">Digite as primeiras palavras para ver a busca montada aqui.</span>`;
+  const orc = orcidOf(q.author);
+  const autor = q.authorLabel ? ` de <b>${esc(q.authorLabel)}</b> (ORCID ${esc(q.authorOrcid ?? "")})` : orc ? ` do autor com ORCID <b>${esc(orc)}</b>` : q.author ? ` de <b>${esc(q.author)}</b>` : "";
+  if (!hasTerms(q)) return q.author ? `Trabalhos${autor}, sobre qualquer assunto.` : `<span class="hint">Digite as primeiras palavras para ver a busca montada aqui.</span>`;
   const grp = (b: string[], i: number) => b.map((t) => `<mark class="c${i % 5}">${esc(t)}</mark>`).join(" ou ");
   const parts = q.blocks.map((b, i) => (b.length > 1 ? `de ${grp(b, i)}` : `de ${grp(b, i)}`));
-  let txt = `Trabalhos que falam ${parts.join(", <b>e também</b> ")}`;
+  let txt = `Trabalhos${autor} que falam ${parts.join(", <b>e também</b> ")}`;
   if (q.noneTerms.length) txt += `, <b>sem</b> ${q.noneTerms.map((t) => `<mark class="neg">${esc(t)}</mark>`).join(" nem ")}`;
   const where = { title: "no título", tak: "no título, resumo ou palavras-chave", all: "em qualquer parte do registro" }[q.scope];
   const pais = q.sourceCountry ? `, em revistas do país ${esc(COUNTRIES.find(([c]) => c === q.sourceCountry)?.[1] ?? q.sourceCountry)}` : "";
@@ -267,8 +269,9 @@ function renderSearch() {
       </div>
       <div class="composer-actions">
         <button class="link-btn" id="addBlock">${ic("plus", 15)}Adicionar grupo</button>
-        <button class="link-btn" id="advToggle">${f.showAdvanced ? "Menos opções" : "Excluir termos, autor, campos"}</button>
+        <button class="link-btn" id="advToggle">${f.showAdvanced ? "Menos opções" : "Excluir termos, escolher campos"}</button>
       </div>
+      <div class="author-row"><label for="author">${ic("user", 15)}Autor</label><input class="inp" id="author" value="${esc(f.author)}" placeholder="opcional — Borba, Rute  ou  ORCID 0000-0002-5098-4461"></div>
       <div class="howto" aria-live="polite">
         <div class="howto-h"><b>Como a busca fica</b>${hasTerms(q) ? `<button class="link-btn" id="copyExpr">${ic("copy", 14)}Copiar a expressão</button>` : ""}</div>
         <p class="howto-p" data-clamp="sentence">${plainSentence(q)}</p>
@@ -280,7 +283,6 @@ function renderSearch() {
         <div class="opt-row"><span class="lbl">Procurar em</span><div class="seg" id="scope" role="group">${(["title", "tak", "all"] as Scope[])
           .map((s) => `<button data-s="${s}" class="${f.scope === s ? "on" : ""}" aria-pressed="${f.scope === s}">${{ title: "Título", tak: "Título, resumo e palavras-chave", all: "Registro inteiro" }[s]}</button>`)
           .join("")}</div></div>
-        <div class="opt-row"><label class="lbl" for="author">Autor</label><input class="inp" id="author" value="${esc(f.author)}" placeholder="ex.: Lopes, Celi Espasandin"></div>
         <div class="opt-row"><span class="lbl"></span><label class="check"><input type="checkbox" id="local" ${f.localFilter ? "checked" : ""}> Conferir a combinação de termos também aqui, depois da busca (útil em bases sem E/OU, como a BDTD)</label></div>
       </div>`
           : ""
@@ -441,6 +443,17 @@ async function runSearch() {
   const q = currentQuery();
   const err = validate(q);
   if (err) return toast(err);
+  const orcid = orcidOf(q.author);
+  if (orcid) {
+    try {
+      const a = await getJson(`https://api.openalex.org/authors/orcid:${orcid}?select=display_name`);
+      const { surname, given } = authorParts(a.display_name);
+      const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
+      Object.assign(q, { authorOrcid: orcid, authorLabel: a.display_name, author: `${cap(surname)}, ${cap(given)}` });
+    } catch {
+      return toast(`Não achei o ORCID ${orcid} no OpenAlex. Confira o número ou escreva o nome do autor.`);
+    }
+  }
   const ids = S.settings.enabledSources.filter((id) => sourceById(id));
   Object.assign(S, { running: true, cancel: false, raw: [], works: [], active: null, lastQuery: q, shown: 60, sort: "relevance" as SortKey });
   S.basket.clear();
@@ -481,6 +494,10 @@ async function runSearch() {
         const r = await src.search(q, ctx);
         let ws = r.works.filter((w) => w.year == null || inYearRange(w, q));
         if (q.localFilter && hasTerms(q)) ws = ws.filter((w) => matchesLocally(w, q));
+        const fetched = ws.length;
+        if (q.author.trim() && !(q.authorOrcid && id === "openalex")) ws = ws.filter((w) => authorMatches(w, q.author));
+        const authorNote = q.author.trim() && fetched > ws.length ? `${fmt(fetched - ws.length)} de outros autores com nome parecido foram descartados` : "";
+        if (authorNote) r.note = r.note ? `${r.note}; ${authorNote}` : authorNote;
         ws.forEach((w, i) => (w.rank = i));
         S.raw.push(...ws);
         Object.assign(st, { state: r.note && !ws.length && !r.total ? "skip" : "ok", done: ws.length, total: r.total, msg: r.note });
@@ -511,7 +528,7 @@ function loadHistory(id: string) {
     ops: [],
     none: [...q.noneTerms],
     scope: q.scope,
-    author: q.author,
+    author: q.authorOrcid ?? q.author,
     yearFrom: q.yearFrom ? String(q.yearFrom) : "",
     yearTo: q.yearTo ? String(q.yearTo) : "",
     listId: S.lists.find((l) => l.name === q.journalListName)?.id ?? "",
@@ -763,7 +780,7 @@ function renderResults() {
           <p class="qline" data-clamp="qline">${q ? q.blocks.map((b, i) => `<span class="blk c${i % 5}">${b.map((t) => `<span class="tm">${esc(t)}</span>`).join(`<span class="or">ou</span>`)}</span>`).join(`<span class="op">e</span>`) : "Registros importados"}${
             q?.noneTerms.length ? `<span class="op not">mas não</span><span class="blk none">${q.noneTerms.map((t) => `<span class="tm">${esc(t)}</span>`).join(`<span class="or">nem</span>`)}</span>` : ""
           }</p>
-          <p class="qlim">${[q?.journalListName && `nas revistas da lista ${esc(q.journalListName)}`, q && (q.yearFrom || q.yearTo) && (q.yearFrom && q.yearTo ? `de ${q.yearFrom} a ${q.yearTo}` : q.yearFrom ? `desde ${q.yearFrom}` : `até ${q.yearTo}`), q?.author && `autor ${esc(q.author)}`, q?.sourceCountry && `país da revista: ${esc(COUNTRIES.find(([c]) => c === q.sourceCountry)?.[1] ?? q.sourceCountry)}`].filter(Boolean).join(", ")}</p>
+          <p class="qlim">${[q?.journalListName && `nas revistas da lista ${esc(q.journalListName)}`, q && (q.yearFrom || q.yearTo) && (q.yearFrom && q.yearTo ? `de ${q.yearFrom} a ${q.yearTo}` : q.yearFrom ? `desde ${q.yearFrom}` : `até ${q.yearTo}`), q?.author && `autor ${esc(q.authorLabel ? `${q.authorLabel} (ORCID ${q.authorOrcid})` : q.author)}`, q?.sourceCountry && `país da revista: ${esc(COUNTRIES.find(([c]) => c === q.sourceCountry)?.[1] ?? q.sourceCountry)}`].filter(Boolean).join(", ")}</p>
           <div class="qact"><button class="ghost" id="edit">${ic("edit", 15)}Editar busca</button>${S.running ? `<button class="ghost" id="stop">${ic("stop", 15)}Parar</button>` : ""}</div>
         </div>
         <div class="nets" id="nets"></div>

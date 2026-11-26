@@ -463,3 +463,6 @@ mark, .preview .ex, .qline .tm { white-space: nowrap; }
 .basket:not(.has):not(.wide) { background: transparent; box-shadow: none; padding: 0; }
 .card .pick { align-self: start; margin-top: 3px; }
 .list { padding-bottom: 84px; }
+.author-row { display: flex; align-items: center; gap: 12px; margin: 14px 0 0; padding: 10px 14px; border: 1px solid var(--linha); border-radius: 12px; background: var(--papel); }
+.author-row label { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13.5px; flex: 0 0 auto; }
+.author-row .inp { flex: 1 1 auto; min-width: 0; }

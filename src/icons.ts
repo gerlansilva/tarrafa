@@ -1,6 +1,6 @@
 import {
   ArrowUpRight, BookMarked, Check, ChevronDown, CircleStop, Copy, Download, FileUp, Highlighter, LibraryBig,
-  LockOpen, Plus, Search, Settings2, Table2, Rows3, X, ChartColumnBig, History, Pencil, Trash2,
+  LockOpen, Plus, Search, Settings2, Table2, Rows3, X, ChartColumnBig, History, Pencil, Trash2, UserRound,
 } from "lucide";
 
 type Node = [string, Record<string, string | number>][];
@@ -9,7 +9,7 @@ const SET: Record<string, Node> = {
   stop: CircleStop as Node, copy: Copy as Node, download: Download as Node, import: FileUp as Node,
   basket: Highlighter as Node, library: LibraryBig as Node, oa: LockOpen as Node, plus: Plus as Node,
   search: Search as Node, settings: Settings2 as Node, table: Table2 as Node, rows: Rows3 as Node, x: X as Node,
-  chart: ChartColumnBig as Node, history: History as Node, edit: Pencil as Node, trash: Trash2 as Node,
+  chart: ChartColumnBig as Node, history: History as Node, edit: Pencil as Node, trash: Trash2 as Node, user: UserRound as Node,
 };
 
 /** Ícone Lucide como SVG em linha (herda a cor do texto). */

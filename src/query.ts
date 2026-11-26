@@ -90,3 +90,35 @@ export function cleanIssn(s: string): string {
   const d = s.toUpperCase().replace(/[^0-9X]/g, "");
   return d.length === 8 ? `${d.slice(0, 4)}-${d.slice(4)}` : s.trim();
 }
+
+const PARTICLES = new Set(["de", "da", "do", "das", "dos", "e", "van", "von", "der", "del", "la", "le", "di", "y", "filho", "junior", "jr", "neto", "sobrinho"]);
+
+/** Aceita "0000-0002-5098-4461" ou "https://orcid.org/0000-0002-5098-4461". */
+export function orcidOf(s: string): string | null {
+  const m = s.trim().match(/^(?:https?:\/\/orcid\.org\/)?(\d{4}-\d{4}-\d{4}-\d{3}[\dXx])$/);
+  return m ? m[1].toUpperCase() : null;
+}
+
+/** "Borba, Rute Elizabete" ou "Rute Borba" → sobrenome e primeiro nome, sem acentos. */
+export function authorParts(a: string): { surname: string; given: string } {
+  const s = normalize(a).replace(/[^a-z, \-]/g, " ").trim();
+  if (s.includes(",")) {
+    const [sur, giv] = s.split(",", 2);
+    const sw = sur.split(/\s+/).filter((w) => w && !PARTICLES.has(w));
+    return { surname: sw[sw.length - 1] ?? "", given: (giv ?? "").trim().split(/\s+/)[0] ?? "" };
+  }
+  const w = s.split(/\s+/).filter((x) => x && !PARTICLES.has(x));
+  return w.length > 1 ? { surname: w[w.length - 1], given: w[0] } : { surname: w[0] ?? "", given: "" };
+}
+
+/** O trabalho tem um autor com esse sobrenome e com o primeiro nome (ou a inicial) dado? */
+export function authorMatches(w: Work, a: string): boolean {
+  const { surname, given } = authorParts(a);
+  if (!surname) return true;
+  return (w.authors ?? []).some((name) => {
+    const n = normalize(name).replace(/[^a-z ]/g, " ").split(/\s+/).filter(Boolean);
+    if (!n.includes(surname)) return false;
+    if (!given) return true;
+    return n.some((x) => x === given || (x.length === 1 && x === given[0]) || (given.length === 1 && x[0] === given));
+  });
+}

@@ -11,7 +11,11 @@ export const crossref: Source = {
   supportsJournals: true,
   async search(q, ctx) {
     const params: string[] = [];
-    if (q.author.trim()) params.push(`query.author=${enc(q.author.trim())}`);
+    if (q.author.trim()) {
+      // "Sobrenome, Nome" vira "Nome Sobrenome", a ordem em que o Crossref pontua melhor
+      const a = q.author.includes(",") ? q.author.split(",").reverse().join(" ").trim() : q.author.trim();
+      params.push(`query.author=${enc(a)}`);
+    }
     const f: string[] = [];
     if (q.yearFrom) f.push(`from-pub-date:${q.yearFrom}`);
     if (q.yearTo) f.push(`until-pub-date:${q.yearTo}`);

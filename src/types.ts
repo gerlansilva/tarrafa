@@ -28,6 +28,10 @@ export interface Query {
   noneTerms: string[];
   scope: Scope;
   author: string;
+  /** ORCID do autor (só os dígitos), quando o campo Autor recebeu um ORCID */
+  authorOrcid?: string;
+  /** nome do dono do ORCID, como o OpenAlex registra */
+  authorLabel?: string;
   yearFrom?: number;
   yearTo?: number;
   issns: string[];

@@ -1,5 +1,5 @@
 import type { Source } from "../types";
-import { booleanExpr, hasTerms } from "../query";
+import { authorParts, booleanExpr, hasTerms } from "../query";
 import { enc, work } from "./util";
 
 export const doaj: Source = {
@@ -19,7 +19,11 @@ export const doaj: Source = {
       wild = q.blocks.flat().concat(q.noneTerms).some((t) => /[*?]/.test(t));
       parts.push(`(${booleanExpr(noWild, { and: " AND ", or: " OR ", not: " NOT ", field })})`);
     }
-    if (q.author.trim()) parts.push(`bibjson.author.name:"${q.author.trim()}"`);
+    if (q.author.trim()) {
+      const { surname, given } = authorParts(q.author);
+      const byName = `bibjson.author.name:(${[surname, given].filter(Boolean).join(" AND ")})`;
+      parts.push(q.authorOrcid ? `(bibjson.author.orcid_id:"https://orcid.org/${q.authorOrcid}" OR ${byName})` : byName);
+    }
     if (q.issns.length) parts.push("(" + q.issns.map((i) => `issn:${i}`).join(" OR ") + ")");
     if (q.sourceCountry) parts.push(`bibjson.journal.country:${q.sourceCountry.toUpperCase()}`);
     if (q.yearFrom || q.yearTo) parts.push(`bibjson.year:[${q.yearFrom ?? "*"} TO ${q.yearTo ?? "*"}]`);

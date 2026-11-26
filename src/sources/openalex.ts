@@ -18,7 +18,8 @@ export function openAlexFilter(q: Query): string {
     const wild = /[*?]/.test(expr);
     f.push(`${field}${wild ? ".exact" : ""}:${expr}`);
   }
-  if (q.author.trim()) f.push(`raw_author_name.search:${q.author.trim().replace(/,/g, " ")}`);
+  if (q.authorOrcid) f.push(`author.orcid:${q.authorOrcid}`);
+  else if (q.author.trim()) f.push(`raw_author_name.search:${q.author.trim().replace(/,/g, " ")}`);
   if (q.yearFrom || q.yearTo) f.push(`publication_year:${q.yearFrom ?? ""}-${q.yearTo ?? ""}`);
   if (q.issns.length) f.push(`primary_location.source.issn:${q.issns.join("|")}`);
   if (q.sourceCountry) f.push(`primary_location.source.country_code:${q.sourceCountry.toLowerCase()}`);
